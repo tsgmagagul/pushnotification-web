@@ -1,15 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Push Notifications</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <h1>Web Push Notifications Example</h1>
-    <button id="subscribe">Subscribe to Notifications</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Push Notification PWA</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/icons/icon-192x192.png" />
+    <meta name="theme-color" content="#ffffff" />
+  </head>
+  <body>
+    <h1>Push Notification PWA</h1>
+    <button onclick="subscribe()">Subscribe</button>
 
-    <script src="script.js"></script>
-</body>
+    <script>
+      async function subscribe() {
+        console.log("Subscribe button clicked");
+
+        // Check if notifications are allowed
+        if (Notification.permission === "denied") {
+          console.error("Notifications are blocked by the user.");
+          alert("Notifications are blocked. Please enable them in your browser settings.");
+          return;
+        }
+
+        // Request permission if not already granted
+        if (Notification.permission !== "granted") {
+          let permission = await Notification.requestPermission();
+          if (permission !== "granted") {
+            console.error("Notification permission denied.");
+            alert("Notification permission denied. Please allow notifications to proceed.");
+            return;
+          }
+        }
+
+        try {
+          let sw = await navigator.serviceWorker.ready;
+          console.log("Service Worker is ready:", sw);
+
+          let push = await sw.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(
+              "BPXO3xrGaltNqSQ3NQQ2rG8lRkQwd2ytTHDt7rmBnp02y9fA7DKVnJqk5JDF6BrUf6irh0fPwL-S3_rFNlsEK9c"
+            )
+          });
+
+          console.log("Push Subscription:", JSON.stringify(push, null, 2));
+
+          // Send the subscription to the backend
+          await fetch("/subscribe", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(push),
+          });
+
+          alert("Subscription successful!");
+        } catch (error) {
+          console.error("Error during subscription:", error);
+          alert("Error during subscription. Check the console for details.");
+        }
+      }
+
+      function urlBase64ToUint8Array(base64String) {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding)
+          .replace(/-/g, "+")
+          .replace(/_/g, "/");
+
+        const rawData = atob(base64);
+        return new Uint8Array([...rawData].map((char) => char.charCodeAt(0)));
+      }
+
+      if ("serviceWorker" in navigator) {
+        addEventListener("load", async () => {
+          try {
+            let sw = await navigator.serviceWorker.register("./sw.js");
+            console.log("Service Worker registered:", sw);
+          } catch (error) {
+            console.error("Service Worker registration failed:", error);
+          }
+        });
+      }
+    </script>
+  </body>
 </html>
